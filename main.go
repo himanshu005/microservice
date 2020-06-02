@@ -13,17 +13,20 @@ import (
 
 func main() {
 	l := log.New(os.Stdout, "product-api :", log.LstdFlags)
-	hh := handler.NewHello(l)
+	//create the handler t
+	hh := handler.NewProduct(l)
 
+	//create serv max and add handler
 	sm := http.NewServeMux()
 	sm.Handle("/", hh)
 
 	s := &http.Server{
-		Addr:         ":9090",
-		Handler:      sm,
-		IdleTimeout:  120 * time.Second,
-		ReadTimeout:  1 * time.Second,
-		WriteTimeout: 1 * time.Second,
+		Addr:         ":9090",           // bind address
+		Handler:      sm,                // set the default handler
+		ErrorLog:     l,                 // set the error log for handler
+		IdleTimeout:  120 * time.Second, // set idle timeout for request
+		ReadTimeout:  1 * time.Second,   // set read time out for request and
+		WriteTimeout: 1 * time.Second,   // set write time out for request
 	}
 	go func() {
 		err := s.ListenAndServe()
