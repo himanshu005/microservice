@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/himanshu005/microservice/handler"
 	"golang.org/x/net/context"
 )
@@ -14,11 +15,21 @@ import (
 func main() {
 	l := log.New(os.Stdout, "product-api :", log.LstdFlags)
 	//create the handler t
-	hh := handler.NewProduct(l)
+	ph := handler.NewProduct(l)
 
 	//create serv max and add handler
-	sm := http.NewServeMux()
-	sm.Handle("/", hh)
+	sm := mux.NewRouter()
+	//sm.Handle("/", ph)
+	getRouter := sm.Methods(http.MethodGet).Subrouter()
+	getRouter.HandleFunc("/", ph.GetProducts)
+
+	putRouter := sm.Methods(http.MethodPut).Subrouter()
+	putRouter.HandleFunc("/{id:[0-9]+}", ph.UpdateProduct)
+	putRouter.Use(ph.MiddlewareValidteProduct)
+
+	postRouter := sm.Methods(http.MethodPost).Subrouter()
+	postRouter.HandleFunc("/", ph.AddProduct)
+	postRouter.Use(ph.MiddlewareValidteProduct)
 
 	s := &http.Server{
 		Addr:         ":9090",           // bind address

@@ -1,11 +1,12 @@
 package handler
 
 import (
+	"context"
 	"log"
 	"net/http"
-	"regexp"
 	"strconv"
 
+	"github.com/gorilla/mux"
 	"github.com/himanshu005/microservice/data"
 )
 
@@ -17,6 +18,7 @@ func NewProduct(l *log.Logger) *Product {
 	return &Product{l}
 }
 
+/***
 func (p *Product) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		p.GetProducts(w, r)
@@ -57,7 +59,7 @@ func (p *Product) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//Method are not supported
 	w.WriteHeader(http.StatusMethodNotAllowed)
 }
-
+*/
 func (p *Product) GetProducts(w http.ResponseWriter, r *http.Request) {
 	p.l.Println("GET Data method")
 	lp := data.GetProducts()
@@ -68,27 +70,32 @@ func (p *Product) GetProducts(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (p *Product) addProduct(w http.ResponseWriter, r *http.Request) {
+func (p *Product) AddProduct(w http.ResponseWriter, r *http.Request) {
 	p.l.Println("Post Data method")
-	prod := &data.Product{}
-	err := prod.FromJSON(r.Body)
-	if err != nil {
-		http.Error(w, "Unnable to unmarshal JSON", http.StatusBadRequest)
-	}
+	// prod := &data.Product{}
+	// err := prod.FromJSON(r.Body)
+	// if err != nil {
+	// 	http.Error(w, "Unnable to unmarshal JSON", http.StatusBadRequest)
+	// }
+	prod := r.Context().Value(keyProduct{}).(data.Product)
 
-	data.AddProduct(prod)
+	data.AddProduct(&prod)
 }
 
-func (p *Product) updateProduct(id int, w http.ResponseWriter, r *http.Request) {
-	p.l.Println("Update Data method")
-	prod := &data.Product{}
-	err := prod.FromJSON(r.Body)
+func (p *Product) UpdateProduct(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		http.Error(w, "Unnable to unmarshal JSON", http.StatusBadRequest)
+		http.Error(w, "Unable to convart id", http.StatusBadRequest)
 	}
-	p.l.Printf("data %#v", prod)
 
-	err = data.UpdateProduct(id, prod)
+	p.l.Println("Update Data method")
+
+	prod := r.Context().Value(keyProduct{}).(data.Product)
+
+	p.l.Printf("data %#v", &prod)
+
+	err = data.UpdateProduct(id, &prod)
 	if err == data.ErrProductNotFound {
 		http.Error(w, "Product not found", http.StatusNotFound)
 	}
@@ -97,4 +104,22 @@ func (p *Product) updateProduct(id int, w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Product not found", http.StatusInternalServerError)
 	}
 
+}
+
+type keyProduct struct{}
+
+func (p Product) MiddlewareValidteProduct(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		prod := data.Product{}
+		err := prod.FromJSON(r.Body)
+		if err != nil {
+			http.Error(w, "Unnable to unmarshal JSON", http.StatusBadRequest)
+			return
+		}
+
+		//add product to context
+		ctx := context.WithValue(r.Context(), keyProduct{}, prod)
+		req := r.WithContext(ctx)
+		next.ServeHTTP(w, req)
+	})
 }
