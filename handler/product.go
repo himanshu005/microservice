@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -117,6 +118,13 @@ func (p Product) MiddlewareValidteProduct(next http.Handler) http.Handler {
 			return
 		}
 
+		err = prod.Validate()
+		if err != nil {
+
+			p.l.Println("[Error] Validate product")
+			http.Error(w, fmt.Sprintf("Error validating product: %s", err), http.StatusBadRequest)
+			return
+		}
 		//add product to context
 		ctx := context.WithValue(r.Context(), keyProduct{}, prod)
 		req := r.WithContext(ctx)
